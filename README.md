@@ -5,7 +5,6 @@ ZWAM is a WhatsApp-WAM (with w:stats schema) inspector which including 5000+ sta
 ### WHAT IS WAM ?
 WAM stand for "WhatsApp Analytics & Metrics" 
 WAM is WhatsApp’s internal telemetry and event-logging system used to collect, encode, and transmit client-side analytics data to WhatsApp servers.
-Purpose
 The WAM system is designed to:
 - Monitor app behavior and feature usage
 - Measure performance, reliability, and latency
