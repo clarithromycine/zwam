@@ -1,0 +1,107 @@
+import os,sys,time
+
+from zwam.wam import Wam
+sys.path.append(".")
+import frida
+import threading
+from common.utils import Utils
+from lxml import etree
+
+class FridaRunner(object):
+
+    CLASS_MAP = {
+        "WhatsApp Business":["com.whatsapp.w4b","com.whatsapp.w4b/com.whatsapp.Main"],
+        "WhatsApp":["com.whatsapp","com.whatsapp/com.whatsapp.Main"]
+    }
+    
+    def __init__(self, js_code, device_manager,device_id, process_name):
+        self.js_code = js_code
+        self.device_manager = device_manager
+        self.device_id = device_id
+        self.process_name = process_name
+        self.class_name = FridaRunner.CLASS_MAP.get(process_name)[0]
+        self.activity_name = FridaRunner.CLASS_MAP.get(process_name)[1]        
+
+    def on_message(self, message, data):           
+        if message['type'] == 'send':
+            msg = message['payload']
+            if msg.startswith("[XML send] <iq xmlns='w:stats'"):                
+                parser = etree.XMLParser(remove_blank_text=True) 
+                xml = etree.XML(msg.replace("[XML send] ",""),parser)    
+                add = xml.find("{w:stats}add")                
+                result = Wam.deserializer(add.text)                
+                print("=== Record Timestamp:{0} ===\n{1}\n".format(int(time.time()),str(result)))                
+
+    def on_detached(self,reason):
+        print('[{0}-{1}] Frida script detached from PID {2}...'.format(self.device_id,self.process_name,self.pid))   
+
+    def run(self):                
+        device = self.device_manager.get_device(self.device_id)
+        os.system("adb -s {0} shell am force-stop {1}".format(self.device_id, self.class_name))
+        os.system("adb -s {0} shell am start {1}".format(self.device_id, self.activity_name))
+        #time.sleep(5)  # wait for the app to start
+        self.pid = device.get_process(self.process_name).pid
+        self.session = device.attach(self.pid)
+        self.script = self.session.create_script(self.js_code)
+        self.session.on("detached",self.on_detached)
+        self.script.on('message', self.on_message)
+        print('[{0}-{1}] Frida script attached to PID {2}...'.format(self.device_id,self.process_name,self.pid))
+        self.script.load()
+
+    def stop(self):
+        os.system("adb -s {0} shell am force-stop {1}".format(self.device_id, self.class_name))        
+                
+    def runAsThread(self):
+        self.thread = threading.Thread(target=self.run)
+        self.thread.daemon = True         
+        self.thread.start()        
+
+
+if __name__ == "__main__":
+
+    params,options = Utils.cmdLineParser(sys.argv)
+
+    with open('android/frida_output.js', 'r', encoding="utf-8") as f:
+        js_code = f.read()
+
+    if js_code is None or js_code == "":
+        print("JS code is empty")
+        exit(1)
+        
+    runnerList = []
+    manager = frida.get_device_manager()
+
+    env = options.get("env","smb_android")
+
+    if env=="android":
+        appName = "WhatsApp"
+    else:
+        appName = "WhatsApp Business"
+
+    
+    device = options.get('device',None)
+
+    if device is None:
+        #没指定device，默认使用第一个usb设备
+        manager = frida.get_device_manager()
+        devices = manager.enumerate_devices()                    
+        for item in devices:
+            if item.type == 'usb':
+                print("Found device: {0} ({1})".format(item.name, item.id))        
+                device = item.id
+                break
+
+    if device  is not None:        
+        print("device: {0}".format(device))
+        device_ids = device.split(",")
+        
+        for device_id in device_ids:
+            runner = FridaRunner(js_code, manager,device_id, appName)
+            runnerList.append(runner) 
+            runner.runAsThread() 
+    else:
+        print("No device connected.")
+        exit(1)
+
+                            
+    sys.stdin.read()

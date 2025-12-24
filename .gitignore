@@ -1,0 +1,17 @@
+config.conf
+
+*.pyc
+*.class
+__pycache__
+todo
+*.egg-info
+tp
+tests
+dist
+build
+.idea
+.tox
+config.conf
+.DS_Store
+node_modules
+.venv

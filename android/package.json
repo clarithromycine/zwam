@@ -1,0 +1,17 @@
+{
+  "name": "android",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "prepare": "npm run build",
+    "build": "frida-compile frida.js -o frida_output.js",
+    "watch": "frida-compile frida.js -o frida_output.js -w"
+  },
+  "dependencies": {
+    "frida-compile": "^16.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7"
+  }
+}
