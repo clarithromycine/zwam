@@ -23,3 +23,6 @@ The WAM system is designed to:
 ### HOW TO RUN
 - python run.py
 
+
+### OUTPUT EXAMPLE WHEN SUCCESSFULLY DEPLOYED
+<img width="1242" height="792" alt="image" src="https://github.com/user-attachments/assets/b3edb5ac-6ff0-4898-ad9c-5fcefefe7a6b" />
