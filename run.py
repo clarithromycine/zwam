@@ -48,14 +48,36 @@ class FridaRunner(object):
         device = self.device_manager.get_device(self.device_id)
         os.system("adb -s {0} shell am force-stop {1}".format(self.device_id, self.class_name))
         os.system("adb -s {0} shell am start {1}".format(self.device_id, self.activity_name))
-        #time.sleep(5)  # wait for the app to start
-        self.pid = device.get_process(self.process_name).pid
-        self.session = device.attach(self.pid)
-        self.script = self.session.create_script(self.js_code)
-        self.session.on("detached", self.on_detached)
-        self.script.on('message', self.on_message)
-        print('[{0}-{1}] Frida script attached to PID {2}...'.format(self.device_id,self.process_name,self.pid))
-        self.script.load()
+        
+        # 等待应用启动，最多尝试5次（5秒）
+        max_retries = 5
+        retry_count = 0
+        self.pid = None
+        
+        while retry_count < max_retries:
+            try:
+                self.pid = device.get_process(self.process_name).pid
+                print(f"[{self.device_id}-{self.process_name}] App started with PID {self.pid}")
+                break
+            except Exception as e:
+                retry_count += 1
+                if retry_count < max_retries:
+                    print(f"[{self.device_id}-{self.process_name}] Waiting for app to start... ({retry_count}/{max_retries})")
+                    time.sleep(1)
+                else:
+                    print(f"[{self.device_id}-{self.process_name}] Failed to start app after {max_retries} seconds")
+                    raise
+        
+        try:
+            self.session = device.attach(self.pid)
+            self.script = self.session.create_script(self.js_code)
+            self.session.on("detached", self.on_detached)
+            self.script.on('message', self.on_message)
+            print('[{0}-{1}] Frida script attached to PID {2}...'.format(self.device_id, self.process_name, self.pid))
+            self.script.load()
+        except Exception as e:
+            print(f"[{self.device_id}-{self.process_name}] Error attaching to process: {e}")
+            raise
 
     def stop(self):
         os.system("adb -s {0} shell am force-stop {1}".format(self.device_id, self.class_name))
