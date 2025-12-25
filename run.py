@@ -1,4 +1,7 @@
 import os,sys,time
+import socket
+import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from zwam.wam import Wam
 sys.path.append(".")
@@ -13,6 +16,92 @@ class FridaRunner(object):
         "WhatsApp Business":["com.whatsapp.w4b","com.whatsapp.w4b/com.whatsapp.Main"],
         "WhatsApp":["com.whatsapp","com.whatsapp/com.whatsapp.Main"]
     }
+
+
+    @staticmethod
+    def get_local_network_prefixes():
+        """获取本机所有网络接口的IP段。"""
+        network_prefixes = []
+        try:
+            # 获取所有网络接口信息
+            import socket
+            hostname = socket.gethostname()
+            
+            # 方法1: 通过hostname获取IP
+            try:
+                local_ip = socket.gethostbyname(hostname)
+                prefix = ".".join(local_ip.split(".")[:-1])
+                network_prefixes.append((prefix, local_ip))
+                print(f"Local IP: {local_ip}, Network: {prefix}.x")
+            except:
+                pass
+            
+            # 方法2: 通过socket连接外部地址来获取本机IP
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.connect(("8.8.8.8", 80))
+                local_ip = s.getsockname()[0]
+                s.close()
+                prefix = ".".join(local_ip.split(".")[:-1])
+                if not any(p[0] == prefix for p in network_prefixes):
+                    network_prefixes.append((prefix, local_ip))
+                    print(f"Local IP (via socket): {local_ip}, Network: {prefix}.x")
+            except:
+                pass
+            
+            # 如果还是没有找到，使用默认值
+            if not network_prefixes:
+                print("Could not determine local network, using 192.168.1.x")
+                network_prefixes.append(("192.168.1", "192.168.1.0"))
+                
+        except Exception as e:
+            print(f"Error detecting network: {e}, using 192.168.1.x")
+            network_prefixes.append(("192.168.1", "192.168.1.0"))
+        
+        return network_prefixes
+
+    @staticmethod
+    def check_adb_device(ip, timeout=2):
+        """检查单个IP是否有ADB设备，返回IP或None。"""
+        ip_with_port = f"{ip}:5555"
+        try:
+            result = subprocess.run(
+                ["adb", "connect", ip_with_port],
+                capture_output=True,
+                text=True,
+                timeout=timeout
+            )
+            if "connected" in result.stdout.lower() or "already connected" in result.stdout.lower():
+                return ip_with_port
+        except Exception as e:
+            pass
+        return None
+
+    @staticmethod
+    def scan_network_for_devices(timeout=2, max_workers=50):
+        """使用多线程扫描本地网络中的Android设备。"""
+        print("Scanning local network for Android devices (using multi-threading)...")
+        found_devices = []
+        network_prefixes = FridaRunner.get_local_network_prefixes()
+        
+        # 构建所有需要检查的IP地址
+        ips_to_check = []
+        for prefix, _ in network_prefixes:
+            for i in range(1, 255):
+                ips_to_check.append(f"{prefix}.{i}")
+        
+        print(f"Checking {len(ips_to_check)} IP addresses with {max_workers} threads...")
+        
+        # 使用ThreadPoolExecutor进行多线程扫描
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(FridaRunner.check_adb_device, ip, timeout): ip for ip in ips_to_check}
+            
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    found_devices.append(result)
+                    print(f"Found device: {result}")
+        return found_devices
     
     def __init__(self, js_code, device_manager,device_id, process_name):
         self.js_code = js_code
@@ -90,6 +179,16 @@ if __name__ == "__main__":
                 print("Found device: {0} ({1})".format(item.name, item.id))        
                 device = item.id
                 break
+        
+        # If no USB device found, scan the local network
+        if device is None:
+            print("No USB device found. Scanning local network for Android devices...")
+            network_devices = FridaRunner.scan_network_for_devices()
+            if network_devices:
+                device = network_devices[0]
+                print(f"Using network device: {device}")
+            else:
+                print("No devices found on local network either.")
 
     if device  is not None:        
         print("device: {0}".format(device))
