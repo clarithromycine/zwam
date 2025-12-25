@@ -31,12 +31,15 @@ class FridaRunner(object):
     def on_message(self, message, data):           
         if message['type'] == 'send':
             msg = message['payload']
-            if msg.startswith("[XML send] <iq xmlns='w:stats'"):                
-                parser = etree.XMLParser(remove_blank_text=True) 
-                xml = etree.XML(msg.replace("[XML send] ",""),parser)    
-                add = xml.find("{w:stats}add")                
-                result = Wam.deserializer(add.text)                
-                print("=== Record Timestamp:{0} ===\n{1}\n".format(int(time.time()),str(result)))                
+            if msg.startswith("["):
+                if msg.startswith("[XML send] <iq xmlns='w:stats'"):                
+                    parser = etree.XMLParser(remove_blank_text=True) 
+                    xml = etree.XML(msg.replace("[XML send] ",""),parser)    
+                    add = xml.find("{w:stats}add")                
+                    result = Wam.deserializer(add.text)                
+                    print("=== Record Timestamp:{0} ===\n{1}\n".format(int(time.time()),str(result)))            
+            else:
+                print(msg)    
 
     def on_detached(self, reason):
         print('[{0}-{1}] Frida script detached from PID {2}...'.format(self.device_id, self.process_name, self.pid))   
