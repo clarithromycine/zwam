@@ -117,22 +117,23 @@ class DeviceScanner(object):
                 broadcast_int = network_int | (~mask_int & 0xffffffff)
                 
                 # 生成网段前缀列表
-                prefixes = []
+                prefixes = set()
                 current_ip = network_int
                 
-                # 逐个提取每个C类网段的前三个八位数
+                # 收集所有覆盖的C类网段前缀
                 while current_ip <= broadcast_int:
-                    # 提取前三个八位数
-                    first = (current_ip >> 24) & 0xff
-                    second = (current_ip >> 16) & 0xff
-                    third = (current_ip >> 8) & 0xff
+                    # 提取前三个八位数（C类网段的前缀）
+                    third_octet = (current_ip >> 8) & 0xff
+                    first_octet = (current_ip >> 24) & 0xff
+                    second_octet = (current_ip >> 16) & 0xff
                     
-                    prefix = f"{first}.{second}.{third}"
-                    if prefix not in prefixes:
-                        prefixes.append(prefix)
+                    prefix = f"{first_octet}.{second_octet}.{third_octet}"
+                    prefixes.add(prefix)
                     
-                    # 移到下一个C类网段
-                    current_ip += 256
+                    # 移到下一个IP
+                    current_ip += 1
+                
+                prefixes = sorted(list(prefixes))
                 
                 if prefixes:
                     print(f"Parsed CIDR {ip_part}/{mask} to {len(prefixes)} network prefix(es): {', '.join(prefixes)}")
