@@ -59,6 +59,7 @@ class FridaRunner(object):
                 self.pid = device.get_process(self.process_name).pid
                 print(f"[{self.device_id}-{self.process_name}] App started with PID {self.pid}")
                 break
+            
             except Exception as e:
                 retry_count += 1
                 if retry_count < max_retries:
