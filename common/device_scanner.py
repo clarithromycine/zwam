@@ -11,8 +11,7 @@ class DeviceScanner(object):
         """获取本机所有网络接口的IP段。"""
         network_prefixes = []
         try:
-            # 获取所有网络接口信息
-            import socket
+            # 获取所有网络接口信息            
             hostname = socket.gethostname()
             
             # 方法1: 通过hostname获取IP
