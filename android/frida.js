@@ -124,7 +124,7 @@ Java.perform(function () {
             currentNumber = data["registration_jid"]            
             let data2 = getXmlItemValues('/data/data/'+packageName+'/shared_prefs/startup_prefs.xml',"int",["registration_device_id"])
             let deviceId = data2["registration_device_id"]            
-            if (deviceId!="0") {
+            if (deviceId && deviceId!="0" ) {
                 currentNumber+=":"+deviceId
             }
         }        
